@@ -131,3 +131,47 @@ EXE dosyası: `bin/Release/net9.0/win-x64/publish/LisBarkodPrinter.exe`
 - .NET 9.0 Runtime (self-contained ise gerekmez)
 - Gainscha GS-2408D yazıcı sürücüsü
 
+## 🚨 Sorun Giderme
+
+### Uygulama Açılıp Hemen Kapanıyor
+
+Bu sorun genellikle şu nedenlerden kaynaklanır:
+
+1. **Port zaten kullanımda**
+   - Çözüm: Uygulama otomatik olarak alternatif portlar dener (22443, 22444, 22445, 8080, 8081)
+
+2. **.NET 9.0 Runtime eksik**
+   - Çözüm: [.NET 9.0 Runtime'ı indirin](https://dotnet.microsoft.com/download)
+
+3. **Yazıcı sürücüleri eksik**
+   - Çözüm: Gainscha GS-2408D sürücüsünü yükleyin
+
+4. **Windows API erişim izni yok**
+   - Çözüm: Yönetici olarak çalıştırın
+
+### Hata Mesajları
+
+Uygulama artık hata durumunda konsolu açık tutar ve detaylı hata mesajları gösterir:
+
+- ❌ Port bağlama hatası
+- ❌ .NET Runtime eksik
+- ❌ Yazıcı bulunamadı
+- ❌ Windows API hatası
+
+### Çalıştırma Seçenekleri
+
+1. **Basit çalıştırma:**
+   ```bash
+   dotnet run
+   ```
+
+2. **Batch dosyası ile:**
+   ```bash
+   run.bat
+   ```
+
+3. **PowerShell ile:**
+   ```powershell
+   .\run.ps1
+   ```
+
