@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Drawing.Printing;
 using Microsoft.AspNetCore.Builder;
@@ -17,6 +19,8 @@ namespace LisBarkodPrinter
         {
             try
             {
+                HideConsoleWindowIfRequested(args);
+
                 Console.WriteLine("=== Gainscha GS-2408D Laboratuvar Barkod Servisi ===");
                 Console.WriteLine($"Port: {PORT}");
                 Console.WriteLine($"Version: {VERSION}");
@@ -394,8 +398,207 @@ PRINT 1,1";
             
             // Alternatif portlar için bilgi mesajı
             Console.WriteLine($"💡 Alternatif portlar mevcut değilse, manuel olarak yapılandırabilirsiniz: {PORT + 1}, {PORT + 2}");
+        } 
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetConsoleWindow();
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        private const int SW_HIDE = 0;
+
+        static void HideConsoleWindowIfRequested(string[] args)
+        {
+            if (Debugger.IsAttached)
+                return;
+
+            if (args.Any(a => string.Equals(a, "--console", StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            var consoleWindow = GetConsoleWindow();
+            if (consoleWindow == IntPtr.Zero)
+                return;
+
+            ShowWindow(consoleWindow, SW_HIDE);
         }
 
+        static string ToSafeLabelText(string text, bool zpl)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+
+            var normalized = TransliterateToAscii(text);
+
+            if (zpl)
+            {
+                normalized = normalized.Replace("^", " ").Replace("~", " ");
+            }
+
+            return CollapseSpaces(normalized).Trim();
+        }
+
+        static string ToSafeBarcodeData(string text, bool tspl)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+
+            var normalized = TransliterateToAscii(text);
+
+            var sb = new StringBuilder(normalized.Length);
+            foreach (var ch in normalized)
+            {
+                if (char.IsLetterOrDigit(ch))
+                {
+                    sb.Append(ch);
+                    continue;
+                }
+
+                switch (ch)
+                {
+                    case '-':
+                    case '_':
+                    case '.':
+                    case '/':
+                        sb.Append(ch);
+                        break;
+                }
+            }
+
+            var result = sb.ToString();
+            if (tspl)
+                result = EscapeTSPL(result);
+
+            return result;
+        }
+
+        static string CollapseSpaces(string text)
+        {
+            var sb = new StringBuilder(text.Length);
+            var lastWasSpace = false;
+            foreach (var ch in text)
+            {
+                var isSpace = char.IsWhiteSpace(ch);
+                if (isSpace)
+                {
+                    if (!lastWasSpace)
+                        sb.Append(' ');
+                    lastWasSpace = true;
+                    continue;
+                }
+
+                sb.Append(ch);
+                lastWasSpace = false;
+            }
+            return sb.ToString();
+        }
+
+        static string TransliterateToAscii(string text)
+        {
+            var sb = new StringBuilder(text.Length);
+
+            foreach (var ch in text)
+            {
+                if (ch <= 0x1F || ch == 0x7F)
+                {
+                    sb.Append(' ');
+                    continue;
+                }
+
+                switch (ch)
+                {
+                    case 'Ç': sb.Append('C'); continue;
+                    case 'ç': sb.Append('c'); continue;
+                    case 'Ğ': sb.Append('G'); continue;
+                    case 'ğ': sb.Append('g'); continue;
+                    case 'İ': sb.Append('I'); continue;
+                    case 'ı': sb.Append('i'); continue;
+                    case 'Ö': sb.Append('O'); continue;
+                    case 'ö': sb.Append('o'); continue;
+                    case 'Ş': sb.Append('S'); continue;
+                    case 'ş': sb.Append('s'); continue;
+                    case 'Ü': sb.Append('U'); continue;
+                    case 'ü': sb.Append('u'); continue;
+
+                    case 'А': sb.Append('A'); continue;
+                    case 'а': sb.Append('a'); continue;
+                    case 'Б': sb.Append('B'); continue;
+                    case 'б': sb.Append('b'); continue;
+                    case 'В': sb.Append('V'); continue;
+                    case 'в': sb.Append('v'); continue;
+                    case 'Г': sb.Append('G'); continue;
+                    case 'г': sb.Append('g'); continue;
+                    case 'Д': sb.Append('D'); continue;
+                    case 'д': sb.Append('d'); continue;
+                    case 'Е': sb.Append('E'); continue;
+                    case 'е': sb.Append('e'); continue;
+                    case 'Ё': sb.Append('E'); continue;
+                    case 'ё': sb.Append('e'); continue;
+                    case 'Ж': sb.Append("Zh"); continue;
+                    case 'ж': sb.Append("zh"); continue;
+                    case 'З': sb.Append('Z'); continue;
+                    case 'з': sb.Append('z'); continue;
+                    case 'И': sb.Append('I'); continue;
+                    case 'и': sb.Append('i'); continue;
+                    case 'Й': sb.Append('I'); continue;
+                    case 'й': sb.Append('i'); continue;
+                    case 'К': sb.Append('K'); continue;
+                    case 'к': sb.Append('k'); continue;
+                    case 'Л': sb.Append('L'); continue;
+                    case 'л': sb.Append('l'); continue;
+                    case 'М': sb.Append('M'); continue;
+                    case 'м': sb.Append('m'); continue;
+                    case 'Н': sb.Append('N'); continue;
+                    case 'н': sb.Append('n'); continue;
+                    case 'О': sb.Append('O'); continue;
+                    case 'о': sb.Append('o'); continue;
+                    case 'П': sb.Append('P'); continue;
+                    case 'п': sb.Append('p'); continue;
+                    case 'Р': sb.Append('R'); continue;
+                    case 'р': sb.Append('r'); continue;
+                    case 'С': sb.Append('S'); continue;
+                    case 'с': sb.Append('s'); continue;
+                    case 'Т': sb.Append('T'); continue;
+                    case 'т': sb.Append('t'); continue;
+                    case 'У': sb.Append('U'); continue;
+                    case 'у': sb.Append('u'); continue;
+                    case 'Ф': sb.Append('F'); continue;
+                    case 'ф': sb.Append('f'); continue;
+                    case 'Х': sb.Append("Kh"); continue;
+                    case 'х': sb.Append("kh"); continue;
+                    case 'Ц': sb.Append("Ts"); continue;
+                    case 'ц': sb.Append("ts"); continue;
+                    case 'Ч': sb.Append("Ch"); continue;
+                    case 'ч': sb.Append("ch"); continue;
+                    case 'Ш': sb.Append("Sh"); continue;
+                    case 'ш': sb.Append("sh"); continue;
+                    case 'Щ': sb.Append("Shch"); continue;
+                    case 'щ': sb.Append("shch"); continue;
+                    case 'Ъ': continue;
+                    case 'ъ': continue;
+                    case 'Ы': sb.Append('Y'); continue;
+                    case 'ы': sb.Append('y'); continue;
+                    case 'Ь': continue;
+                    case 'ь': continue;
+                    case 'Э': sb.Append('E'); continue;
+                    case 'э': sb.Append('e'); continue;
+                    case 'Ю': sb.Append("Yu"); continue;
+                    case 'ю': sb.Append("yu"); continue;
+                    case 'Я': sb.Append("Ya"); continue;
+                    case 'я': sb.Append("ya"); continue;
+                }
+
+                if (ch <= 0x7E)
+                {
+                    sb.Append(ch);
+                    continue;
+                }
+
+                sb.Append(' ');
+            }
+
+            return sb.ToString();
+        }
         /// <summary>
         /// Laboratuvar etiketi için ZPL oluşturur
         /// </summary>
@@ -404,6 +607,12 @@ PRINT 1,1";
         {
             Console.WriteLine("  ⚙️ Basit etiket oluşturuluyor...");
             
+            var safePatientName = ToSafeLabelText(patientName, zpl: true);
+            var safeServiceName = ToSafeLabelText(serviceName, zpl: true);
+            var safeDoctorName = ToSafeLabelText(doctorName, zpl: true);
+            var safeTestType = ToSafeLabelText(testType, zpl: true);
+            var safeSampleId = ToSafeBarcodeData(sampleId, tspl: false);
+
             StringBuilder zpl = new StringBuilder();
             zpl.AppendLine("^XA"); // ZPL başlangıç
             
@@ -412,20 +621,20 @@ PRINT 1,1";
             zpl.AppendLine("^LL200"); // Yükseklik
             
             // Hasta bilgileri - üst (aşağıya taşındı)
-            zpl.AppendLine($"^FO10,30^A0N,20,20^FD{patientName}^FS");
+            zpl.AppendLine($"^FO10,30^A0N,20,20^FD{safePatientName}^FS");
             
             // Servis bilgisi (aşağıya taşındı)
-            zpl.AppendLine($"^FO10,55^A0N,16,16^FDServisi: {serviceName}^FS");
+            zpl.AppendLine($"^FO10,55^A0N,16,16^FDServisi: {safeServiceName}^FS");
             
             // Doktor ve tarih (aşağıya taşındı)
-            zpl.AppendLine($"^FO10,78^A0N,14,14^FD{doctorName}^FS");
+            zpl.AppendLine($"^FO10,78^A0N,14,14^FD{safeDoctorName}^FS");
             zpl.AppendLine($"^FO200,78^A0N,14,14^FD{sampleDate:dd.MM.yyyy HH:mm}^FS");
             
             // Barkod - aşağıya taşındı (etiketin alt yarısında)
-            zpl.AppendLine($"^FO50,120^BY2,2,50^BCN,50,Y,N,N^FD{sampleId}^FS");
+            zpl.AppendLine($"^FO50,120^BY2,2,50^BCN,50,Y,N,N^FD{safeSampleId}^FS");
             
             // Test türü - alt (daha aşağıya taşındı - üst üste gelmesin)
-            zpl.AppendLine($"^FO10,195^A0N,16,16^FD{testType}^FS");
+            zpl.AppendLine($"^FO10,195^A0N,16,16^FD{safeTestType}^FS");
             
             // Çerçeve (daha aşağıya büyütüldü - test türü içinde kalsın)
             zpl.AppendLine("^FO5,5^GB390,210,2^FS");
@@ -443,6 +652,12 @@ PRINT 1,1";
         {
             Console.WriteLine("  ⚙️ TSPL etiket oluşturuluyor...");
             
+            var safePatientName = ToSafeLabelText(patientName, zpl: false);
+            var safeServiceName = ToSafeLabelText(serviceName, zpl: false);
+            var safeDoctorName = ToSafeLabelText(doctorName, zpl: false);
+            var safeTestType = ToSafeLabelText(testType, zpl: false);
+            var safeSampleId = ToSafeBarcodeData(sampleId, tspl: true);
+
             StringBuilder tspl = new StringBuilder();
             
             // TSPL başlangıç komutları
@@ -451,25 +666,25 @@ PRINT 1,1";
             tspl.AppendLine("CLS"); // Clear - önceki komutları temizle
             
             // Hasta adı - üst (biraz büyütüldü: "1" → "2")
-            tspl.AppendLine($"TEXT 20,25,\"2\",0,1,1,\"{EscapeTSPL(patientName)}\"");
+            tspl.AppendLine($"TEXT 20,25,\"2\",0,1,1,\"{EscapeTSPL(safePatientName)}\"");
             
             // Servis bilgisi (font büyütüldü: "1" → "2")
-            tspl.AppendLine($"TEXT 20,50,\"2\",0,1,1,\"Servisi: {EscapeTSPL(serviceName)}\"");
+            tspl.AppendLine($"TEXT 20,50,\"2\",0,1,1,\"Servisi: {EscapeTSPL(safeServiceName)}\"");
             
             // Doktor adı ve tarih/saat yan yana (y: 70)
             string dateStr = sampleDate.ToString("dd.MM.yyyy HH:mm");
-            tspl.AppendLine($"TEXT 20,70,\"1\",0,1,1,\"{EscapeTSPL(doctorName)}\"");
+            tspl.AppendLine($"TEXT 20,70,\"1\",0,1,1,\"{EscapeTSPL(safeDoctorName)}\"");
             tspl.AppendLine($"TEXT 160,70,\"1\",0,1,1,\"{dateStr}\"");
             
             // Barkod (Code 128) - sola kaydırıldı (x: 90 → 75)
             // BARCODE x,y,"code type",height,human readable,rotation,narrow,wide,"content"
             // height: 70 → 60 (daha kompakt), narrow: 2 → 3, wide: 2 → 3 (daha geniş çubuklar, daha iyi okunabilirlik)
-            tspl.AppendLine($"BARCODE 75,95,\"128\",60,1,0,3,3,\"{sampleId}\"");
+            tspl.AppendLine($"BARCODE 75,95,\"128\",60,1,0,3,3,\"{safeSampleId}\"");
             
             // Barkod altında numara KALDIRILDI - barkod zaten okunabilir numarayı içeriyor
             
             // Test türü - en alt (aşağıya indirildi, üst üste binmeyi önlemek için)
-            tspl.AppendLine($"TEXT 20,195,\"1\",0,1,1,\"{EscapeTSPL(testType)}\"");
+            tspl.AppendLine($"TEXT 20,195,\"1\",0,1,1,\"{EscapeTSPL(safeTestType)}\"");
             
             // Çerçeve (BOX x,y,x_end,y_end,thickness)
             tspl.AppendLine("BOX 10,10,390,220,2"); // Çerçeve yüksekliği test türü için ayarlandı
